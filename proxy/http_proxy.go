@@ -45,8 +45,8 @@ type HTTPProxy struct {
 	// The proxy will panic if this value is nil.
 	Lookup func(*http.Request) *route.Target
 
-	// Requests is a timer metric which is updated for every request.
-	Requests metrics4.Timer
+	// Requests is a histogram metric which is updated for every request.
+	Requests metrics4.Histogram
 
 	// Noroute is a counter metric which is updated for every request
 	// where Lookup() returns nil.
@@ -130,10 +130,8 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if t.RedirectCode != 0 && t.RedirectURL != nil {
 		http.Redirect(w, r, t.RedirectURL.String(), t.RedirectCode)
-		if t.Timer != nil {
-			t.Timer.Update(0)
-		}
-		metrics.NewCounter("http.status", "code", strconv.Itoa(t.RedirectCode)).Count(1)
+
+		metrics.NewCounter("http.status", "code", strconv.Itoa(t.RedirectCode)).Inc()
 		return
 	}
 

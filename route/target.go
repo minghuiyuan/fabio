@@ -50,8 +50,8 @@ type Target struct {
 	// Weight is the actual weight for this service in percent.
 	Weight float64
 
-	// Timer measures throughput and latency of this target
-	Timer metrics4.Timer
+	// Histogram measures throughput and latency of this target
+	Timer metrics4.Histogram
 
 	// TimerName is the name of the timer in the metrics registry
 	TimerName names.Service

@@ -28,16 +28,18 @@ func Flatten(name string, labels []string, separator string) string {
 
 // todo(fs): this function probably allocates like crazy. If on the stack then it might be ok.
 // todo(fs): otherwise, give some love.
-func Labels(labels []string, prefix, fieldsep, recsep string) string {
+func Labels(labels []string, values[], stringsprefix, fieldsep, recsep string) string {
 	if len(labels) == 0 {
 		return ""
 	}
-	if len(labels)%2 != 0 {
-		labels = append(labels, "???")
+	if len(labels) > len(values) {
+		v2 := make([]string, len(labels))
+		copy(v2, values)
+		for i := len(values); i < len(v2); i++ {
+			v2[i] = ""
+		}
+		values = v2
 	}
-	var fields []string
-	for i := 0; i < len(labels); i += 2 {
-		fields = append(fields, labels[i]+fieldsep+labels[i+1])
-	}
+
 	return prefix + strings.Join(fields, recsep)
 }

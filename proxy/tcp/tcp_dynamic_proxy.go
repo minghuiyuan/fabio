@@ -42,13 +42,13 @@ func (p *DynamicProxy) ServeTCP(in net.Conn) error {
 	}
 
 	if p.Conn != nil {
-		p.Conn.Count(1)
+		p.Conn.Inc()
 	}
 	target := in.LocalAddr().String()
 	t := p.Lookup(target)
 	if t == nil {
 		if p.Noroute != nil {
-			p.Noroute.Count(1)
+			p.Noroute.Inc()
 		}
 		return nil
 	}
@@ -63,7 +63,7 @@ func (p *DynamicProxy) ServeTCP(in net.Conn) error {
 	if err != nil {
 		log.Print("[WARN] tcp: cannot connect to upstream ", addr)
 		if p.ConnFail != nil {
-			p.ConnFail.Count(1)
+			p.ConnFail.Inc()
 		}
 		return err
 	}

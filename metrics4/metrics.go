@@ -1,19 +1,26 @@
 package metrics4
 
 import (
-	"time"
+	gkm "github.com/go-kit/kit/metrics"
 )
+
+type Incer interface {
+	Inc()
+}
+
+
+
 
 // Provider is an abstraction of a metrics backend.
 type Provider interface {
 	// NewCounter creates a new counter object.
-	NewCounter(name string, labels ...string) Counter
+	NewCounter(name string, labels ...string) gkm.Counter
 
 	// NewGauge creates a new gauge object.
-	NewGauge(name string, labels ...string) Gauge
+	NewGauge(name string, labels ...string) gkm.Gauge
 
-	// NewTimer creates a new timer object.
-	NewTimer(name string, labels ...string) Timer
+	// NewHistogram creates a new histogram object
+	NewHistogram(name string, labels ...string) gkm.Histogram
 
 	// Unregister removes a previously registered
 	// name or metric. Required for go-metrics and
@@ -33,8 +40,8 @@ func NewMultiProvider(p []Provider) *MultiProvider {
 
 // NewCounter creates a MultiCounter with counter objects for all registered
 // providers.
-func (mp *MultiProvider) NewCounter(name string, labels ...string) Counter {
-	var c []Counter
+func (mp *MultiProvider) NewCounter(name string, labels ...string) gkm.Counter {
+	var c []gkm.Counter
 	for _, p := range mp.p {
 		c = append(c, p.NewCounter(name, labels...))
 	}
@@ -43,22 +50,20 @@ func (mp *MultiProvider) NewCounter(name string, labels ...string) Counter {
 
 // NewGauge creates a MultiGauge with gauge objects for all registered
 // providers.
-func (mp *MultiProvider) NewGauge(name string, labels ...string) Gauge {
-	var v []Gauge
+func (mp *MultiProvider) NewGauge(name string, labels ...string) gkm.Gauge {
+	var v []gkm.Gauge
 	for _, p := range mp.p {
 		v = append(v, p.NewGauge(name, labels...))
 	}
 	return &MultiGauge{v}
 }
 
-// NewTimer creates a MultiTimer with timer objects for all registered
-// providers.
-func (mp *MultiProvider) NewTimer(name string, labels ...string) Timer {
-	var t []Timer
+func (mp *MultiProvider) NewHistogram(name string, labels ...string) gkm.Histogram {
+	var h []gkm.Histogram
 	for _, p := range mp.p {
-		t = append(t, p.NewTimer(name, labels...))
+		h = append(h, p.NewHistogram(name, labels...))
 	}
-	return &MultiTimer{t}
+	return &MultiHistogram{h : h}
 }
 
 // Unregister removes the metric object from all registered providers.
@@ -68,50 +73,77 @@ func (mp *MultiProvider) Unregister(v interface{}) {
 	}
 }
 
-// Count measures a number.
-type Counter interface {
-	Count(int)
-}
-
 // MultiCounter wraps zero or more counters.
 type MultiCounter struct {
-	c []Counter
+	c []gkm.Counter
 }
 
-func (mc *MultiCounter) Count(n int) {
+func (mc *MultiCounter) Inc() {
 	for _, c := range mc.c {
-		c.Count(n)
+		if inc, ok := c.(Incer); ok {
+			inc.Inc()
+		} else {
+			c.Add(1)
+		}
 	}
 }
 
-// Gauge measures a value.
-type Gauge interface {
-	Update(int)
+func (mc *MultiCounter) Add(v float64) {
+	for _, c := range mc.c {
+		c.Add(v)
+	}
 }
+
+func (mc *MultiCounter) With(labels ...string) gkm.Counter {
+	cc := make([]gkm.Counter, len(mc.c))
+	for i := range mc.c {
+		cc[i] = mc.c[i].With(labels...)
+	}
+	return &MultiCounter{c: cc}
+}
+
 
 // MultiGauge wraps zero or more gauges.
 type MultiGauge struct {
-	v []Gauge
+	v []gkm.Gauge
 }
 
-func (m *MultiGauge) Update(n int) {
+func (m *MultiGauge) Set(n float64) {
 	for _, v := range m.v {
-		v.Update(n)
+		v.Set(n)
 	}
 }
 
-// Timer measures the time of an event.
-type Timer interface {
-	Update(time.Duration)
+func (m *MultiGauge) With(labels ...string) gkm.Gauge {
+	vc := make([]gkm.Gauge, len(m.v))
+	for i := range m.v {
+		vc[i] = m.v[i].With(labels...)
+	}
+	return &MultiGauge{v: vc}
 }
 
-// MultTimer wraps zero or more timers.
-type MultiTimer struct {
-	t []Timer
-}
-
-func (mt *MultiTimer) Update(d time.Duration) {
-	for _, t := range mt.t {
-		t.Update(d)
+func (m *MultiGauge) Add(val float64) {
+	for _, v := range m.v {
+		v.Add(val)
 	}
 }
+
+type MultiHistogram struct {
+	h []gkm.Histogram
+}
+
+func (m *MultiHistogram) With(labelValues ...string) gkm.Histogram {
+	hc := make([]gkm.Histogram, len(m.h))
+	for i := range m.h {
+		hc[i] = m.h[i].With(labelValues...)
+	}
+	return &MultiHistogram{h: hc}
+}
+
+func (m *MultiHistogram) Observe(value float64) {
+	for _, v := range m.h {
+		v.Observe(value)
+	}
+}
+
+

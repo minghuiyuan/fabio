@@ -47,7 +47,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	}
 
 	if p.Conn != nil {
-		p.Conn.Count(1)
+		p.Conn.Inc()
 	}
 
 	tlsReader := bufio.NewReader(in)
@@ -55,7 +55,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	if err != nil {
 		log.Print("[DEBUG] tcp+sni: TLS handshake failed (failed to peek data)")
 		if p.ConnFail != nil {
-			p.ConnFail.Count(1)
+			p.ConnFail.Inc()
 		}
 		return err
 	}
@@ -64,7 +64,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	if err != nil {
 		log.Printf("[DEBUG] tcp+sni: TLS handshake failed (%s)", err)
 		if p.ConnFail != nil {
-			p.ConnFail.Count(1)
+			p.ConnFail.Inc()
 		}
 		return err
 	}
@@ -74,7 +74,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	if err != nil {
 		log.Printf("[DEBUG] tcp+sni: TLS handshake failed (%s)", err)
 		if p.ConnFail != nil {
-			p.ConnFail.Count(1)
+			p.ConnFail.Inc()
 		}
 		return err
 	}
@@ -85,7 +85,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	if !ok {
 		log.Print("[DEBUG] tcp+sni: TLS handshake failed (unable to parse client hello)")
 		if p.ConnFail != nil {
-			p.ConnFail.Count(1)
+			p.ConnFail.Inc()
 		}
 		return nil
 	}
@@ -93,7 +93,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	if host == "" {
 		log.Print("[DEBUG] tcp+sni: server_name missing")
 		if p.ConnFail != nil {
-			p.ConnFail.Count(1)
+			p.ConnFail.Inc()
 		}
 		return nil
 	}
@@ -101,7 +101,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	t := p.Lookup(host)
 	if t == nil {
 		if p.Noroute != nil {
-			p.Noroute.Count(1)
+			p.Noroute.Inc()
 		}
 		return nil
 	}
@@ -115,7 +115,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	if err != nil {
 		log.Print("[WARN] tcp+sni: cannot connect to upstream ", addr)
 		if p.ConnFail != nil {
-			p.ConnFail.Count(1)
+			p.ConnFail.Inc()
 		}
 		return err
 	}
@@ -127,7 +127,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 		if err != nil {
 			log.Print("[WARN] tcp+sni: write proxy protocol header failed. ", err)
 			if p.ConnFail != nil {
-				p.ConnFail.Count(1)
+				p.ConnFail.Inc()
 			}
 			return err
 		}
@@ -138,7 +138,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	if err != nil {
 		log.Print("[WARN] tcp+sni: copy client hello failed. ", err)
 		if p.ConnFail != nil {
-			p.ConnFail.Count(1)
+			p.ConnFail.Inc()
 		}
 		return err
 	}
@@ -154,7 +154,7 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	tx := metrics.NewCounter(t.TimerName.String() + ".tx")
 
 	// we've received the ClientHello already
-	rx.Count(n)
+	rx.Add(int64(n))
 
 	go cp(in, out, rx)
 	go cp(out, in, tx)

@@ -126,6 +126,7 @@ func main() {
 	metrics := initMetrics(cfg)
 	initRuntime(cfg)
 	initBackend(cfg)
+	route.SetMetricsProvider(metrics)
 
 	// init OpenTracing, if enabled
 	trace.InitializeTracer(&cfg.Tracing)
