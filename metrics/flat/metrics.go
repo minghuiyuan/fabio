@@ -73,7 +73,7 @@ type Histogram struct {
 }
 
 func (h *Histogram) Observe(t float64) {
-	fmt.Printf(":%s:%d|ms\n", int64(math.Round(t*100.0)))
+	fmt.Printf(":%s:%d|ms\n", h.Name, int64(math.Round(t)))
 }
 func (h *Histogram) With(labels ...string) gkm.Histogram {
 	return h

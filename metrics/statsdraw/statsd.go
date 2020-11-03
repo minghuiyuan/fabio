@@ -31,7 +31,7 @@ func NewProvider(prefix, addr string, interval time.Duration) (*Provider, error)
 	}
 	_, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
-		return nil, fmt.Errorf("error resolving statsd address %s: %w", err)
+		return nil, fmt.Errorf("error resolving statsd address %s: %w", addr, err)
 	}
 	var ctx context.Context
 	ctx, p.cancel = context.WithCancel(context.Background())

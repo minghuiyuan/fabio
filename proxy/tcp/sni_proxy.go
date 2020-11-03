@@ -141,7 +141,9 @@ func (p *SNIProxy) ServeTCP(in net.Conn) error {
 	}
 
 	// we've received the ClientHello already
-	t.RxCounter.Add(float64(n))
+	if t.RxCounter != nil {
+		t.RxCounter.Add(float64(n))
+	}
 
 	go cp(in, out, t.RxCounter)
 	go cp(out, in, t.TxCounter)

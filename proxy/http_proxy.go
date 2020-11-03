@@ -132,7 +132,9 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if t.RedirectCode != 0 && t.RedirectURL != nil {
 		http.Redirect(w, r, t.RedirectURL.String(), t.RedirectCode)
-		p.StatusCounter.With("code", strconv.Itoa(t.RedirectCode)).Add(1)
+		if p.StatusCounter != nil {
+			p.StatusCounter.With("code", strconv.Itoa(t.RedirectCode)).Add(1)
+		}
 		return
 	}
 
@@ -234,7 +236,9 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.StatusTimer.With("code", strconv.Itoa(rw.code)).Observe(ms)
+	if p.StatusTimer != nil {
+		p.StatusTimer.With("code", strconv.Itoa(rw.code)).Observe(ms)
+	}
 
 	// write access log
 	if p.Logger != nil {
