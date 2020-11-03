@@ -5,8 +5,8 @@ import (
 	"math"
 	"sync/atomic"
 
-	gkm "github.com/go-kit/kit/metrics"
 	"github.com/fabiolb/fabio/metrics4/names"
+	gkm "github.com/go-kit/kit/metrics"
 )
 
 type Provider struct{}
@@ -43,7 +43,7 @@ type Gauge struct {
 	// Stolen from prometheus client gauge
 	valBits uint64
 
-	Name    string
+	Name string
 }
 
 func (g *Gauge) Set(n float64) {
@@ -56,7 +56,7 @@ func (g *Gauge) Add(delta float64) {
 	var newBits uint64
 	for {
 		oldBits = atomic.LoadUint64(&g.valBits)
-		newBits = math.Float64bits(math.Float64frombits(oldBits)+delta)
+		newBits = math.Float64bits(math.Float64frombits(oldBits) + delta)
 		if atomic.CompareAndSwapUint64(&g.valBits, oldBits, newBits) {
 			break
 		}

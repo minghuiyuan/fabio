@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"log"
 	"net/http"
 

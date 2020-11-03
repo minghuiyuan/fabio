@@ -10,15 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fabiolb/fabio/metrics4/names"
 	"github.com/gobwas/glob"
 )
-
-var stats metrics4.Provider = &metrics4.MultiProvider{}
-
-func SetMetricsProvider(p metrics4.Provider) {
-	stats = p
-}
 
 // Route maps a path prefix to one or more target URLs.
 // routes can have a weight value which describes the
@@ -47,7 +40,6 @@ type Route struct {
 
 	// Glob represents compiled pattern.
 	Glob glob.Glob
-
 }
 
 func (r *Route) addTarget(service string, targetURL *url.URL, fixedWeight float64, tags []string, opts map[string]string) {
@@ -68,13 +60,8 @@ func (r *Route) addTarget(service string, targetURL *url.URL, fixedWeight float6
 		Opts:        opts,
 		URL:         targetURL,
 		FixedWeight: fixedWeight,
-		Timer: r.Stats.NewHistogram(),
-		TimerName: names.Service{
-			Service:   service,
-			Host:      r.Host,
-			Path:      r.Path,
-			TargetURL: targetURL,
-		},
+		Timer:       histogram.With("service", service, "host", r.Host, "path", r.Path, "target", targetURL.String()),
+
 	}
 
 	var err error

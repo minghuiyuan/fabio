@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"errors"
+	gkm "github.com/go-kit/kit/metrics"
 	"io"
 	"net"
 	"net/http"
@@ -46,14 +47,20 @@ type HTTPProxy struct {
 	Lookup func(*http.Request) *route.Target
 
 	// Requests is a histogram metric which is updated for every request.
-	Requests metrics4.Histogram
+	Requests gkm.Histogram
 
 	// Noroute is a counter metric which is updated for every request
 	// where Lookup() returns nil.
-	Noroute metrics4.Counter
+	Noroute gkm.Counter
 
 	// WSConn counts the number of open web socket connections.
-	WSConn metrics4.Gauge
+	WSConn gkm.Gauge
+
+	// Status is a counter for the given status codes
+	StatusCounter gkm.Counter
+
+	// StatusTimer is a histogram for given status codes
+	StatusTimer gkm.Histogram
 
 	// Metrics is the configured metrics backend provider.
 	Metrics metrics4.Provider
@@ -130,8 +137,7 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if t.RedirectCode != 0 && t.RedirectURL != nil {
 		http.Redirect(w, r, t.RedirectURL.String(), t.RedirectCode)
-
-		metrics.NewCounter("http.status", "code", strconv.Itoa(t.RedirectCode)).Inc()
+		p.StatusCounter.With("code", strconv.Itoa(t.RedirectCode)).Add(1)
 		return
 	}
 
@@ -222,17 +228,18 @@ func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	end := timeNow()
 	dur := end.Sub(start)
 
+	ms := dur.Seconds() * 1000.0
 	if p.Requests != nil {
-		p.Requests.Update(dur)
+		p.Requests.Observe(ms)
 	}
 	if t.Timer != nil {
-		t.Timer.Update(dur)
+		t.Timer.Observe(ms)
 	}
 	if rw.code <= 0 {
 		return
 	}
 
-	metrics.NewTimer("http.status", "code", strconv.Itoa(rw.code)).Update(dur)
+	p.StatusTimer.With("code", strconv.Itoa(rw.code)).Observe(ms)
 
 	// write access log
 	if p.Logger != nil {

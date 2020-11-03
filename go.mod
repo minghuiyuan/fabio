@@ -3,7 +3,7 @@ module github.com/fabiolb/fabio
 require (
 	github.com/Shopify/sarama v1.19.0 // indirect
 	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
-	github.com/alexcesaro/statsd v2.0.0+incompatible
+	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/apache/thrift v0.13.0 // indirect
 	github.com/armon/go-metrics v0.3.4 // indirect
 	github.com/armon/go-proxyproto v0.0.0-20180202201750-5b7edb60ff5f
@@ -14,6 +14,7 @@ require (
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/frankban/quicktest v1.11.1 // indirect
+	github.com/go-kit/kit v0.9.0
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	github.com/gobwas/glob v0.0.0-20180208211842-19c076cdf202
 	github.com/gogo/protobuf v1.2.1 // indirect
@@ -42,6 +43,7 @@ require (
 	github.com/pascaldekloe/goe v0.1.0
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/profile v1.5.0
+	github.com/prometheus/client_golang v1.4.0
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b
 	github.com/rakyll/statik v0.1.7
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
@@ -55,7 +57,6 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/grpc v1.33.0
 	google.golang.org/protobuf v1.25.0 // indirect
-	gopkg.in/alexcesaro/statsd.v2 v2.0.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )

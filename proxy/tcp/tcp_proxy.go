@@ -1,6 +1,8 @@
 package tcp
 
 import (
+	gkm "github.com/go-kit/kit/metrics"
+	"github.com/rcrowley/go-metrics"
 	"io"
 	"log"
 	"net"
@@ -21,28 +23,21 @@ type Proxy struct {
 	Lookup func(host string) *route.Target
 
 	// Conn counts the number of connections.
-	Conn metrics4.Counter
+	Conn gkm.Counter
 
 	// ConnFail counts the failed upstream connection attempts.
-	ConnFail metrics4.Counter
+	ConnFail gkm.Counter
 
 	// Noroute counts the failed Lookup() calls.
-	Noroute metrics4.Counter
+	Noroute gkm.Counter
 
-	// Metrics is the configured metrics backend provider.
-	Metrics metrics4.Provider
 }
 
 func (p *Proxy) ServeTCP(in net.Conn) error {
 	defer in.Close()
 
-	metrics := p.Metrics
-	if metrics == nil {
-		metrics = &metrics4.MultiProvider{}
-	}
-
 	if p.Conn != nil {
-		p.Conn.Inc()
+		p.Conn.Add(1)
 	}
 
 	_, port, _ := net.SplitHostPort(in.LocalAddr().String())
@@ -50,7 +45,7 @@ func (p *Proxy) ServeTCP(in net.Conn) error {
 	t := p.Lookup(port)
 	if t == nil {
 		if p.Noroute != nil {
-			p.Noroute.Inc()
+			p.Noroute.Add(1)
 		}
 		return nil
 	}
@@ -64,7 +59,7 @@ func (p *Proxy) ServeTCP(in net.Conn) error {
 	if err != nil {
 		log.Print("[WARN] tcp: cannot connect to upstream ", addr)
 		if p.ConnFail != nil {
-			p.ConnFail.Inc()
+			p.ConnFail.Add(1)
 		}
 		return err
 	}
@@ -76,14 +71,14 @@ func (p *Proxy) ServeTCP(in net.Conn) error {
 		if err != nil {
 			log.Print("[WARN] tcp: write proxy protocol header failed. ", err)
 			if p.ConnFail != nil {
-				p.ConnFail.Inc()
+				p.ConnFail.Add(1)
 			}
 			return err
 		}
 	}
 
 	errc := make(chan error, 2)
-	cp := func(dst io.Writer, src io.Reader, c metrics4.Counter) {
+	cp := func(dst io.Writer, src io.Reader, c gkm.Counter) {
 		errc <- copyBuffer(dst, src, c)
 	}
 

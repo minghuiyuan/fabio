@@ -2,14 +2,8 @@ package metrics4
 
 import (
 	gkm "github.com/go-kit/kit/metrics"
+	"github.com/go-kit/kit/metrics/discard"
 )
-
-type Incer interface {
-	Inc()
-}
-
-
-
 
 // Provider is an abstraction of a metrics backend.
 type Provider interface {
@@ -63,7 +57,7 @@ func (mp *MultiProvider) NewHistogram(name string, labels ...string) gkm.Histogr
 	for _, p := range mp.p {
 		h = append(h, p.NewHistogram(name, labels...))
 	}
-	return &MultiHistogram{h : h}
+	return &MultiHistogram{h: h}
 }
 
 // Unregister removes the metric object from all registered providers.
@@ -76,16 +70,6 @@ func (mp *MultiProvider) Unregister(v interface{}) {
 // MultiCounter wraps zero or more counters.
 type MultiCounter struct {
 	c []gkm.Counter
-}
-
-func (mc *MultiCounter) Inc() {
-	for _, c := range mc.c {
-		if inc, ok := c.(Incer); ok {
-			inc.Inc()
-		} else {
-			c.Add(1)
-		}
-	}
 }
 
 func (mc *MultiCounter) Add(v float64) {
@@ -101,7 +85,6 @@ func (mc *MultiCounter) With(labels ...string) gkm.Counter {
 	}
 	return &MultiCounter{c: cc}
 }
-
 
 // MultiGauge wraps zero or more gauges.
 type MultiGauge struct {
@@ -146,4 +129,18 @@ func (m *MultiHistogram) Observe(value float64) {
 	}
 }
 
+type DiscardProvider struct{}
 
+func (dp DiscardProvider) NewCounter(name string, labels ...string) gkm.Counter {
+	return discard.NewCounter()
+}
+
+func (dp DiscardProvider) NewGauge(name string, labels ...string) gkm.Gauge {
+	return discard.NewGauge()
+}
+
+func (dp DiscardProvider) NewHistogram(name string, labels ...string) gkm.Histogram {
+	return discard.NewHistogram()
+}
+
+func (dp DiscardProvider) Unregister(v interface{}) {}

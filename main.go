@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	gkm "github.com/go-kit/kit/metrics"
 	"io"
 	"log"
 	"net"
@@ -124,6 +125,8 @@ func main() {
 	})
 
 	metrics := initMetrics(cfg)
+	route.SetMetricsProvider(metrics)
+	route.SetHistogram(metrics.NewHistogram("routes", ""))
 	initRuntime(cfg)
 	initBackend(cfg)
 	route.SetMetricsProvider(metrics)
@@ -157,7 +160,7 @@ func newGrpcProxy(cfg *config.Config, tlscfg *tls.Config, stats metrics4.Provide
 
 	statsHandler := &proxy.GrpcStatsHandler{
 		Connect: stats.NewCounter("grpc.conn"),
-		Request: stats.NewTimer("grpc.requests"),
+		Request: stats.NewHistogram("grpc.requests"),
 		NoRoute: stats.NewCounter("grpc.noroute"),
 		Metrics: stats,
 	}
@@ -238,27 +241,28 @@ func newHTTPProxy(cfg *config.Config, stats metrics4.Provider) *proxy.HTTPProxy 
 		Lookup: func(r *http.Request) *route.Target {
 			t := route.GetTable().Lookup(r, r.Header.Get("trace"), pick, match, globCache, cfg.GlobMatchingDisabled)
 			if t == nil {
-				notFound.Count(1)
+				notFound.Add(1)
 				log.Print("[WARN] No route for ", r.Host, r.URL)
 			}
 			return t
 		},
-		Requests:    stats.NewTimer("requests"),
-		Noroute:     stats.NewCounter("notfound"),
-		Logger:      l,
-		TracerCfg:   cfg.Tracing,
-		AuthSchemes: authSchemes,
-		WSConn:      stats.NewGauge("ws.conn"),
-		Metrics:     stats,
+		Requests:      stats.NewHistogram("requests"),
+		Noroute:       stats.NewCounter("notfound"),
+		StatusCounter: stats.NewCounter("http.status", "code"),
+		Logger:        l,
+		TracerCfg:     cfg.Tracing,
+		AuthSchemes:   authSchemes,
+		WSConn:        stats.NewGauge("ws.conn"),
+		Metrics:       stats,
 	}
 }
 
-func lookupHostFn(cfg *config.Config, notFound metrics4.Counter) func(string) *route.Target {
+func lookupHostFn(cfg *config.Config, notFound gkm.Counter) func(string) *route.Target {
 	pick := route.Picker[cfg.Proxy.Strategy]
 	return func(host string) *route.Target {
 		t := route.GetTable().LookupHost(host, pick)
 		if t == nil {
-			notFound.Count(1)
+			notFound.Add(1)
 			log.Print("[WARN] No route for ", host)
 		}
 		return t
@@ -344,7 +348,7 @@ func startServers(cfg *config.Config, stats metrics4.Provider) {
 			go func() {
 				h := newHTTPProxy(cfg, stats)
 				// reset the ws.conn gauge
-				h.WSConn.Update(0)
+				h.WSConn.Set(0)
 				if err := proxy.ListenAndServeHTTP(l, h, tlscfg); err != nil {
 					exit.Fatal("[FATAL] ", err)
 				}
@@ -593,28 +597,29 @@ func watchBackend(cfg *config.Config, p metrics4.Provider, first chan bool) {
 	}
 }
 
-func unregisterMetrics(p metrics4.Provider, oldTable, newTable route.Table) {
-	names := func(t route.Table) map[string]bool {
-		m := map[string]bool{}
-		for _, routes := range t {
-			for _, r := range routes {
-				for _, t := range r.Targets {
-					m[t.TimerName.String()] = true
-				}
-			}
-		}
-		return m
-	}
-
-	oldNames := names(oldTable)
-	newNames := names(newTable)
-	for n := range oldNames {
-		if !newNames[n] {
-			log.Printf("[INFO] Unregistering metric %s", n)
-			p.Unregister(n)
-		}
-	}
-}
+//
+//func unregisterMetrics(p metrics4.Provider, oldTable, newTable route.Table) {
+//	names := func(t route.Table) map[string]bool {
+//		m := map[string]bool{}
+//		for _, routes := range t {
+//			for _, r := range routes {
+//				for _, t := range r.Targets {
+//					m[t.TimerName.String()] = true
+//				}
+//			}
+//		}
+//		return m
+//	}
+//
+//	oldNames := names(oldTable)
+//	newNames := names(newTable)
+//	for n := range oldNames {
+//		if !newNames[n] {
+//			log.Printf("[INFO] Unregistering metric %s", n)
+//			p.Unregister(n)
+//		}
+//	}
+//}
 
 func watchNoRouteHTML(cfg *config.Config) {
 	html := registry.Default.WatchNoRouteHTML()
