@@ -16,7 +16,7 @@ func copyBuffer(dst io.Writer, src io.Reader, c gkm.Counter) (err error) {
 			nw, ew := dst.Write(buf[0:nr])
 			if nw > 0 {
 				if c != nil {
-					c.Add(int64(nw))
+					c.Add(float64(nw))
 				}
 			}
 			if ew != nil {

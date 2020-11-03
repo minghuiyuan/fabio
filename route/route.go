@@ -2,7 +2,6 @@ package route
 
 import (
 	"fmt"
-	"github.com/fabiolb/fabio/metrics4"
 	"log"
 	"net/url"
 	"reflect"
@@ -60,8 +59,7 @@ func (r *Route) addTarget(service string, targetURL *url.URL, fixedWeight float6
 		Opts:        opts,
 		URL:         targetURL,
 		FixedWeight: fixedWeight,
-		Timer:       histogram.With("service", service, "host", r.Host, "path", r.Path, "target", targetURL.String()),
-
+		Timer:       counters.histogram.With("service", service, "host", r.Host, "path", r.Path, "target", targetURL.String()),
 	}
 
 	var err error

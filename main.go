@@ -25,10 +25,10 @@ import (
 	"github.com/fabiolb/fabio/config"
 	"github.com/fabiolb/fabio/exit"
 	"github.com/fabiolb/fabio/logger"
-	"github.com/fabiolb/fabio/metrics4"
-	"github.com/fabiolb/fabio/metrics4/flat"
-	"github.com/fabiolb/fabio/metrics4/label"
-	"github.com/fabiolb/fabio/metrics4/statsdraw"
+	"github.com/fabiolb/fabio/metrics"
+	"github.com/fabiolb/fabio/metrics/flat"
+	"github.com/fabiolb/fabio/metrics/label"
+	"github.com/fabiolb/fabio/metrics/statsdraw"
 	"github.com/fabiolb/fabio/noroute"
 	"github.com/fabiolb/fabio/proxy"
 	"github.com/fabiolb/fabio/proxy/tcp"
@@ -126,7 +126,6 @@ func main() {
 
 	metrics := initMetrics(cfg)
 	route.SetMetricsProvider(metrics)
-	route.SetHistogram(metrics.NewHistogram("routes", ""))
 	initRuntime(cfg)
 	initBackend(cfg)
 	route.SetMetricsProvider(metrics)
@@ -153,7 +152,7 @@ func main() {
 	log.Print("[INFO] Down")
 }
 
-func newGrpcProxy(cfg *config.Config, tlscfg *tls.Config, stats metrics4.Provider) []grpc.ServerOption {
+func newGrpcProxy(cfg *config.Config, tlscfg *tls.Config, stats metrics.Provider) []grpc.ServerOption {
 
 	//Init Glob Cache
 	globCache := route.NewGlobCache(cfg.GlobCacheSize)
@@ -162,7 +161,7 @@ func newGrpcProxy(cfg *config.Config, tlscfg *tls.Config, stats metrics4.Provide
 		Connect: stats.NewCounter("grpc.conn"),
 		Request: stats.NewHistogram("grpc.requests"),
 		NoRoute: stats.NewCounter("grpc.noroute"),
-		Metrics: stats,
+		Status:  stats.NewHistogram("grep.status", "code"),
 	}
 
 	proxyInterceptor := proxy.GrpcProxyInterceptor{
@@ -181,7 +180,7 @@ func newGrpcProxy(cfg *config.Config, tlscfg *tls.Config, stats metrics4.Provide
 	}
 }
 
-func newHTTPProxy(cfg *config.Config, stats metrics4.Provider) *proxy.HTTPProxy {
+func newHTTPProxy(cfg *config.Config, stats metrics.Provider) *proxy.HTTPProxy {
 	var w io.Writer
 
 	//Init Glob Cache
@@ -329,7 +328,7 @@ func startAdmin(cfg *config.Config) {
 	}()
 }
 
-func startServers(cfg *config.Config, stats metrics4.Provider) {
+func startServers(cfg *config.Config, stats metrics.Provider) {
 	for _, l := range cfg.Listen {
 		l := l // capture loop var for go routines below
 		tlscfg, err := makeTLSConfig(l)
@@ -368,7 +367,6 @@ func startServers(cfg *config.Config, stats metrics4.Provider) {
 					Conn:        stats.NewCounter("tcp.conn"),
 					ConnFail:    stats.NewCounter("tcp.connfail"),
 					Noroute:     stats.NewCounter("tcp.noroute"),
-					Metrics:     stats,
 				}
 				if err := proxy.ListenAndServeTCP(l, h, tlscfg); err != nil {
 					exit.Fatal("[FATAL] ", err)
@@ -382,7 +380,6 @@ func startServers(cfg *config.Config, stats metrics4.Provider) {
 					Conn:        stats.NewCounter("tcp_sni.conn"),
 					ConnFail:    stats.NewCounter("tcp_sni.connfail"),
 					Noroute:     stats.NewCounter("tcp_sni.noroute"),
-					Metrics:     stats,
 				}
 				if err := proxy.ListenAndServeTCP(l, h, tlscfg); err != nil {
 					exit.Fatal("[FATAL] ", err)
@@ -425,7 +422,6 @@ func startServers(cfg *config.Config, stats metrics4.Provider) {
 								Conn:        stats.NewCounter("tcp.conn"),
 								ConnFail:    stats.NewCounter("tcp.connfail"),
 								Noroute:     stats.NewCounter("tcp.noroute"),
-								Metrics:     stats,
 							}
 							l.Addr = port
 							if err := proxy.ListenAndServeTCP(l, h, tlscfg); err != nil {
@@ -444,7 +440,6 @@ func startServers(cfg *config.Config, stats metrics4.Provider) {
 					Conn:        stats.NewCounter("tcp_sni.conn"),
 					ConnFail:    stats.NewCounter("tcp_sni.connfail"),
 					Noroute:     stats.NewCounter("tcp_sni.noroute"),
-					Metrics:     stats,
 				}
 				if err := proxy.ListenAndServeHTTPSTCPSNI(l, hp, tp, tlscfg, lookupHostMatcher(cfg)); err != nil {
 					exit.Fatal("[FATAL] ", err)
@@ -456,8 +451,8 @@ func startServers(cfg *config.Config, stats metrics4.Provider) {
 	}
 }
 
-func initMetrics(cfg *config.Config) metrics4.Provider {
-	var p []metrics4.Provider
+func initMetrics(cfg *config.Config) metrics.Provider {
+	var p []metrics.Provider
 	for _, x := range strings.Split(cfg.Metrics.Target, ",") {
 		x = strings.TrimSpace(x)
 		switch x {
@@ -482,7 +477,7 @@ func initMetrics(cfg *config.Config) metrics4.Provider {
 	if len(p) == 0 {
 		log.Printf("[INFO] Metrics disabled")
 	}
-	return metrics4.NewMultiProvider(p)
+	return metrics.NewMultiProvider(p)
 }
 
 func initRuntime(cfg *config.Config) {
@@ -536,7 +531,7 @@ func initBackend(cfg *config.Config) {
 	}
 }
 
-func watchBackend(cfg *config.Config, p metrics4.Provider, first chan bool) {
+func watchBackend(cfg *config.Config, p metrics.Provider, first chan bool) {
 	var (
 		nextTable   string
 		lastTable   string
@@ -596,30 +591,6 @@ func watchBackend(cfg *config.Config, p metrics4.Provider, first chan bool) {
 		}
 	}
 }
-
-//
-//func unregisterMetrics(p metrics4.Provider, oldTable, newTable route.Table) {
-//	names := func(t route.Table) map[string]bool {
-//		m := map[string]bool{}
-//		for _, routes := range t {
-//			for _, r := range routes {
-//				for _, t := range r.Targets {
-//					m[t.TimerName.String()] = true
-//				}
-//			}
-//		}
-//		return m
-//	}
-//
-//	oldNames := names(oldTable)
-//	newNames := names(newTable)
-//	for n := range oldNames {
-//		if !newNames[n] {
-//			log.Printf("[INFO] Unregistering metric %s", n)
-//			p.Unregister(n)
-//		}
-//	}
-//}
 
 func watchNoRouteHTML(cfg *config.Config) {
 	html := registry.Default.WatchNoRouteHTML()

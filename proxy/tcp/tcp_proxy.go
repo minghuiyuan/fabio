@@ -2,13 +2,11 @@ package tcp
 
 import (
 	gkm "github.com/go-kit/kit/metrics"
-	"github.com/rcrowley/go-metrics"
 	"io"
 	"log"
 	"net"
 	"time"
 
-	"github.com/fabiolb/fabio/metrics4"
 	"github.com/fabiolb/fabio/route"
 )
 
@@ -30,7 +28,6 @@ type Proxy struct {
 
 	// Noroute counts the failed Lookup() calls.
 	Noroute gkm.Counter
-
 }
 
 func (p *Proxy) ServeTCP(in net.Conn) error {
@@ -82,13 +79,8 @@ func (p *Proxy) ServeTCP(in net.Conn) error {
 		errc <- copyBuffer(dst, src, c)
 	}
 
-	// rx measures the traffic to the upstream server (in <- out)
-	// tx measures the traffic from the upstream server (out <- in)
-	rx := metrics.NewCounter(t.TimerName.String() + ".rx")
-	tx := metrics.NewCounter(t.TimerName.String() + ".tx")
-
-	go cp(in, out, rx)
-	go cp(out, in, tx)
+	go cp(in, out, t.RxCounter)
+	go cp(out, in, t.TxCounter)
 	err = <-errc
 	if err != nil && err != io.EOF {
 		log.Print("[WARN]: tcp:  ", err)

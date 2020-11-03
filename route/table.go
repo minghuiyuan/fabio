@@ -15,7 +15,7 @@ import (
 
 	"github.com/gobwas/glob"
 
-	"github.com/fabiolb/fabio/metrics4"
+	"github.com/fabiolb/fabio/metrics"
 )
 
 var errInvalidPrefix = errors.New("route: prefix must not be empty")
@@ -30,10 +30,9 @@ var table atomic.Value
 // init initializes the routing table.
 func init() {
 	table.Store(make(Table))
-	np := metrics4.DiscardProvider{}
+	np := metrics.DiscardProvider{}
 	SetMetricsProvider(np)
 }
-
 
 type metrix struct {
 	histogram gkm.Histogram
@@ -43,12 +42,11 @@ type metrix struct {
 
 var counters metrix
 
-func SetMetricsProvider(p metrics4.Provider) {
+func SetMetricsProvider(p metrics.Provider) {
 	counters.histogram = p.NewHistogram("route", "service", "host", "path", "target")
 	counters.rxCounter = p.NewCounter("route.rx", "service", "host", "path", "target")
 	counters.txCounter = p.NewCounter("route.tx", "host", "path", "target")
 }
-
 
 func newHistogram(service, host, path, target string) gkm.Histogram {
 	return counters.histogram.With("service", service, "host", host, "path", path, "target", target)
@@ -61,9 +59,6 @@ func newRxCounter(service, host, path, target string) gkm.Counter {
 func newTxCounter(service, host, path, target string) gkm.Counter {
 	return counters.txCounter.With("service", service, "host", host, "path", path, "target", target)
 }
-
-
-
 
 // GetTable returns the active routing table. The function
 // is safe to be called from multiple goroutines and the

@@ -16,7 +16,7 @@ import (
 	"github.com/fabiolb/fabio/auth"
 	"github.com/fabiolb/fabio/config"
 	"github.com/fabiolb/fabio/logger"
-	"github.com/fabiolb/fabio/metrics4"
+	"github.com/fabiolb/fabio/metrics"
 	"github.com/fabiolb/fabio/noroute"
 	"github.com/fabiolb/fabio/proxy/gzip"
 	"github.com/fabiolb/fabio/route"
@@ -63,7 +63,7 @@ type HTTPProxy struct {
 	StatusTimer gkm.Histogram
 
 	// Metrics is the configured metrics backend provider.
-	Metrics metrics4.Provider
+	Metrics metrics.Provider
 
 	// Logger is the access logger for the requests.
 	Logger logger.Logger
@@ -82,11 +82,6 @@ type HTTPProxy struct {
 func (p *HTTPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if p.Lookup == nil {
 		panic("no lookup function")
-	}
-
-	metrics := p.Metrics
-	if metrics == nil {
-		metrics = &metrics4.MultiProvider{}
 	}
 
 	if p.Config.RequestID != "" {
