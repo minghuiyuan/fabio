@@ -119,7 +119,7 @@ func (g GrpcProxyInterceptor) Stream(srv interface{}, stream grpc.ServerStream, 
 	end := time.Now()
 	dur := end.Sub(start)
 
-	target.Timer.Observe(dur.Seconds() * 1000.0)
+	target.Timer.Observe(dur.Seconds())
 
 	return err
 }
@@ -186,12 +186,11 @@ func (h *GrpcStatsHandler) HandleRPC(ctx context.Context, rpc stats.RPCStats) {
 
 	dur := rpcStats.EndTime.Sub(rpcStats.BeginTime)
 
-	ms := dur.Seconds() * 1000.0
-	h.Request.Observe(ms)
+	h.Request.Observe(dur.Seconds())
 
 	s, _ := status.FromError(rpcStats.Error)
 
-	h.Status.With("code", s.Code().String()).Observe(ms)
+	h.Status.With("code", s.Code().String()).Observe(dur.Seconds())
 }
 
 // HandleConn processes the Conn stats.

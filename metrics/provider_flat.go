@@ -75,7 +75,7 @@ type flatHistogram struct {
 }
 
 func (h *flatHistogram) Observe(t float64) {
-	fmt.Printf(":%s:%d|ms\n", h.Name, int64(math.Round(t)))
+	fmt.Printf(":%s:%d|ms\n", h.Name, int64(math.Round(t*1000.0)))
 }
 func (h *flatHistogram) With(labels ...string) gkm.Histogram {
 	return h

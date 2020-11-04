@@ -160,6 +160,10 @@ func (h *statsdHistogram) With(labelValues ...string) gkm.Histogram {
 	}
 }
 
+func (h *statsdHistogram) Observe(value float64) {
+	h.Histogram.Observe(value * 1000.0)
+}
+
 func (p *statsdProvider) NewHistogram(name string, labels ...string) gkm.Histogram {
 	h := p.s.NewTiming(name, 1)
 	if len(labels) == 0 {

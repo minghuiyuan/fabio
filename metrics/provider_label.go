@@ -104,5 +104,5 @@ func (h *labelHistogram) With(labels ...string) gkm.Histogram {
 }
 
 func (h *labelHistogram) Observe(t float64) {
-	fmt.Printf("%s:%d|ms%s\n", h.Name, int64(math.Round(t)), Labels(h.Labels, h.Values, "|#", ":", ","))
+	fmt.Printf("%s:%d|ms%s\n", h.Name, int64(math.Round(t*1000.0)), Labels(h.Labels, h.Values, "|#", ":", ","))
 }
