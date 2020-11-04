@@ -1,4 +1,4 @@
-package prometheus
+package metrics
 
 import (
 	gkm "github.com/go-kit/kit/metrics"
@@ -6,24 +6,34 @@ import (
 	promclient "github.com/prometheus/client_golang/prometheus"
 )
 
-type Provider struct {
+type promProvider struct {
 	Opts    promclient.Opts
 	Buckets []float64
 }
 
-func (p *Provider) NewCounter(name string, labels ...string) gkm.Counter {
+func newPromProvider(namespace, subsystem string, buckets []float64) Provider {
+	return &promProvider{
+		Opts: promclient.Opts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+		},
+		Buckets: buckets,
+	}
+}
+
+func (p *promProvider) NewCounter(name string, labels ...string) gkm.Counter {
 	copts := promclient.CounterOpts(p.Opts)
 	copts.Name = name
 	return prommetrics.NewCounterFrom(copts, labels)
 }
 
-func (p *Provider) NewGauge(name string, labels ...string) gkm.Gauge {
+func (p *promProvider) NewGauge(name string, labels ...string) gkm.Gauge {
 	gopts := promclient.GaugeOpts(p.Opts)
 	gopts.Name = name
 	return prommetrics.NewGaugeFrom(gopts, labels)
 }
 
-func (p *Provider) NewHistogram(name string, labels ...string) gkm.Histogram {
+func (p *promProvider) NewHistogram(name string, labels ...string) gkm.Histogram {
 	hopts := promclient.HistogramOpts{
 		Namespace:   p.Opts.Namespace,
 		Subsystem:   p.Opts.Subsystem,
@@ -35,6 +45,6 @@ func (p *Provider) NewHistogram(name string, labels ...string) gkm.Histogram {
 	return prommetrics.NewHistogramFrom(hopts, labels)
 }
 
-func (p *Provider) Unregister(v interface{}) {
+func (p *promProvider) Unregister(v interface{}) {
 	// noop
 }

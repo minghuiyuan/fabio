@@ -1,9 +1,7 @@
-package names
+package metrics
 
 import (
 	"bytes"
-	"fmt"
-	"github.com/fabiolb/fabio/config"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -28,25 +26,12 @@ const DefaultPrefix = "{{clean .Hostname}}.{{clean .Exec}}"
 // names stores the template for the route metric names.
 var names *template.Template
 
-// prefix stores the final prefix string to use it with metric collectors where applicable, i.e. Graphite/StatsD
-var prefix string
-
 func init() {
 	// make sure names is initialized to something
 	var err error
 	if names, err = parseNames(DefaultNames); err != nil {
 		panic(err)
 	}
-}
-
-func NewNamer(cfg config.Metrics) error {
-	var err error
-	if prefix, err = parsePrefix(cfg.Prefix); err != nil {
-		return fmt.Errorf("metrics: invalid Prefix template: %w", err)
-	}
-
-	// start up the stuff?  maybe this should move to metrics
-	return nil
 }
 
 func (s Service) String() string {

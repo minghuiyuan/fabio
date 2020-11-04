@@ -1,4 +1,4 @@
-package statsdraw
+package metrics
 
 import (
 	"context"
@@ -11,11 +11,9 @@ import (
 	"github.com/go-kit/kit/log"
 	gkm "github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/statsd"
-
-	"github.com/fabiolb/fabio/metrics/names"
 )
 
-type Provider struct {
+type statsdProvider struct {
 	s      *statsd.Statsd
 	cancel func()
 	wg     sync.WaitGroup
@@ -23,9 +21,8 @@ type Provider struct {
 	prefix string
 }
 
-func NewProvider(prefix, addr string, interval time.Duration) (*Provider, error) {
-
-	p := &Provider{
+func newStatsdProvider(prefix, addr string, interval time.Duration) (*statsdProvider, error) {
+	p := &statsdProvider{
 		s:      statsd.New(prefix, log.NewNopLogger()),
 		prefix: prefix,
 	}
@@ -45,28 +42,29 @@ func NewProvider(prefix, addr string, interval time.Duration) (*Provider, error)
 	return p, nil
 }
 
-type Counter struct {
+type statsdCounter struct {
 	gkm.Counter
+	prefix       string
 	routeCounter bool
 	name         string
-	p            *Provider
+	p            *statsdProvider
 	labels       []string
 }
 
-func (c *Counter) With(labelValues ...string) gkm.Counter {
+func (c *statsdCounter) With(labelValues ...string) gkm.Counter {
 	var name string
 
 	switch c.routeCounter {
 	case true:
 		var err error
-		name, err = names.RouteNameWith(c.name, c.labels, labelValues)
+		name, err = RouteNameWith(c.name, c.labels, labelValues)
 		if err != nil {
 			panic(err)
 		}
 	case false:
-		name = names.Flatten(c.name, labelValues, names.DotSeparator)
+		name = Flatten(c.name, labelValues, DotSeparator)
 	}
-	return &Counter{
+	return &statsdCounter{
 		Counter:      c.p.s.NewCounter(name, 1),
 		name:         name,
 		labels:       c.labels,
@@ -74,40 +72,42 @@ func (c *Counter) With(labelValues ...string) gkm.Counter {
 	}
 }
 
-func (p *Provider) NewCounter(name string, labels ...string) gkm.Counter {
+func (p *statsdProvider) NewCounter(name string, labels ...string) gkm.Counter {
 	if len(labels) == 0 {
 		return p.s.NewCounter(name, 1)
 	}
-	return &Counter{
+	rc := strings.HasPrefix(name, RoutePrefix)
+	name = strings.Join([]string{p.prefix, name}, "--")
+	return &statsdCounter{
 		Counter:      p.s.NewCounter(name, 1),
 		name:         name,
 		p:            p,
 		labels:       labels,
-		routeCounter: strings.HasPrefix(name, names.RoutePrefix),
+		routeCounter: rc,
 	}
 }
 
-type Gauge struct {
+type statsdGauge struct {
 	gkm.Gauge
 	name       string
-	p          *Provider
+	p          *statsdProvider
 	labels     []string
 	routeGauge bool
 }
 
-func (g *Gauge) With(labelValues ...string) gkm.Gauge {
+func (g *statsdGauge) With(labelValues ...string) gkm.Gauge {
 	var name string
 	switch g.routeGauge {
 	case true:
 		var err error
-		name, err = names.RouteNameWith(g.name, g.labels, labelValues)
+		name, err = RouteNameWith(g.name, g.labels, labelValues)
 		if err != nil {
 			panic(err)
 		}
 	case false:
-		name = names.Flatten(g.name, labelValues, names.DotSeparator)
+		name = Flatten(g.name, labelValues, DotSeparator)
 	}
-	return &Gauge{
+	return &statsdGauge{
 		Gauge:      g.p.s.NewGauge(name),
 		name:       name,
 		p:          g.p,
@@ -116,41 +116,43 @@ func (g *Gauge) With(labelValues ...string) gkm.Gauge {
 	}
 }
 
-func (p *Provider) NewGauge(name string, labels ...string) gkm.Gauge {
+func (p *statsdProvider) NewGauge(name string, labels ...string) gkm.Gauge {
 	g := p.s.NewGauge(name)
 	if len(labels) == 0 {
 		return g
 	}
-	return &Gauge{
+	rc := strings.HasPrefix(name, RoutePrefix)
+	name = strings.Join([]string{p.prefix, name}, "--")
+	return &statsdGauge{
 		Gauge:      g,
 		name:       name,
 		labels:     labels,
-		routeGauge: strings.HasPrefix(name, names.RoutePrefix),
+		routeGauge: rc,
 	}
 }
 
-type Histogram struct {
+type statsdHistogram struct {
 	gkm.Histogram
-	p              *Provider
+	p              *statsdProvider
 	name           string
 	labels         []string
 	routeHistogram bool
 }
 
-func (h *Histogram) With(labelValues ...string) gkm.Histogram {
+func (h *statsdHistogram) With(labelValues ...string) gkm.Histogram {
 	var name string
 	switch h.routeHistogram {
 	case true:
 		var err error
-		name, err = names.RouteNameWith(h.name, h.labels, labelValues)
+		name, err = RouteNameWith(h.name, h.labels, labelValues)
 		if err != nil {
 			panic(err)
 		}
 	case false:
-		name = names.Flatten(h.name, labelValues, names.DotSeparator)
+		name = Flatten(h.name, labelValues, DotSeparator)
 
 	}
-	return &Histogram{
+	return &statsdHistogram{
 		Histogram:      h.p.NewHistogram(name, h.labels...),
 		name:           name,
 		labels:         h.labels,
@@ -158,20 +160,22 @@ func (h *Histogram) With(labelValues ...string) gkm.Histogram {
 	}
 }
 
-func (p *Provider) NewHistogram(name string, labels ...string) gkm.Histogram {
+func (p *statsdProvider) NewHistogram(name string, labels ...string) gkm.Histogram {
 	h := p.s.NewTiming(name, 1)
 	if len(labels) == 0 {
 		return h
 	}
-	return &Histogram{
+	rc := strings.HasPrefix(name, RoutePrefix)
+	name = strings.Join([]string{p.prefix, name}, "--")
+	return &statsdHistogram{
 		Histogram:      h,
 		name:           name,
 		labels:         labels,
-		routeHistogram: strings.HasPrefix(name, names.RoutePrefix),
+		routeHistogram: rc,
 	}
 }
 
-func (p *Provider) Unregister(interface{}) {
+func (p *statsdProvider) Unregister(interface{}) {
 	p.t.Stop()
 	p.cancel()
 	p.wg.Wait()

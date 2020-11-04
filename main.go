@@ -26,9 +26,6 @@ import (
 	"github.com/fabiolb/fabio/exit"
 	"github.com/fabiolb/fabio/logger"
 	"github.com/fabiolb/fabio/metrics"
-	"github.com/fabiolb/fabio/metrics/flat"
-	"github.com/fabiolb/fabio/metrics/label"
-	"github.com/fabiolb/fabio/metrics/statsdraw"
 	"github.com/fabiolb/fabio/noroute"
 	"github.com/fabiolb/fabio/proxy"
 	"github.com/fabiolb/fabio/proxy/tcp"
@@ -124,7 +121,10 @@ func main() {
 		registry.Default.DeregisterAll()
 	})
 
-	metrics := initMetrics(cfg)
+	metrics, err := metrics.Initialize(&cfg.Metrics)
+	if err != nil {
+		exit.Fatal("[FATAL] ", err)
+	}
 	route.SetMetricsProvider(metrics)
 	initRuntime(cfg)
 	initBackend(cfg)
@@ -445,39 +445,16 @@ func startServers(cfg *config.Config, stats metrics.Provider) {
 					exit.Fatal("[FATAL] ", err)
 				}
 			}()
+		case "prometheus":
+			go func() {
+				if err := proxy.ListenAndServePrometheus(l, cfg.Metrics.Prometheus, tlscfg); err != nil {
+					exit.Fatal("[FATAL] ", err)
+				}
+			}()
 		default:
 			exit.Fatal("[FATAL] Invalid protocol ", l.Proto)
 		}
 	}
-}
-
-func initMetrics(cfg *config.Config) metrics.Provider {
-	var p []metrics.Provider
-	for _, x := range strings.Split(cfg.Metrics.Target, ",") {
-		x = strings.TrimSpace(x)
-		switch x {
-		case "flat":
-			p = append(p, &flat.Provider{})
-		case "label":
-			p = append(p, &label.Provider{})
-		case "statsd_raw":
-			// prefix := cfg.Metrics.Prefix // prefix is a template and needs to be expanded
-			prefix := ""
-			pp, err := statsdraw.NewProvider(prefix, cfg.Metrics.StatsDAddr, cfg.Metrics.Interval)
-			if err != nil {
-				exit.Fatalf("[FATAL] Cannot initialize statsd metrics: %s", err)
-			}
-			p = append(p, pp)
-		default:
-			log.Printf("[WARN] Skipping unknown metrics provider %q", x)
-			continue
-		}
-		log.Printf("[INFO] Registering metrics provider %q", x)
-	}
-	if len(p) == 0 {
-		log.Printf("[INFO] Metrics disabled")
-	}
-	return metrics.NewMultiProvider(p)
 }
 
 func initRuntime(cfg *config.Config) {
