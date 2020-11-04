@@ -19,4 +19,3 @@ func (dp DiscardProvider) NewHistogram(name string, labels ...string) gkm.Histog
 	return discard.NewHistogram()
 }
 
-func (dp DiscardProvider) Unregister(v interface{}) {}

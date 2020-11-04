@@ -45,6 +45,3 @@ func (p *promProvider) NewHistogram(name string, labels ...string) gkm.Histogram
 	return prommetrics.NewHistogramFrom(hopts, labels)
 }
 
-func (p *promProvider) Unregister(v interface{}) {
-	// noop
-}

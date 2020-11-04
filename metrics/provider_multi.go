@@ -39,13 +39,6 @@ func (mp *MultiProvider) NewHistogram(name string, labels ...string) gkm.Histogr
 	return &MultiHistogram{h: h}
 }
 
-// Unregister removes the metric object from all registered providers.
-func (mp *MultiProvider) Unregister(v interface{}) {
-	for _, p := range mp.p {
-		p.Unregister(v)
-	}
-}
-
 // MultiCounter wraps zero or more counters.
 type MultiCounter struct {
 	c []gkm.Counter

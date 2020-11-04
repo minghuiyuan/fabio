@@ -25,8 +25,6 @@ func (p *flatProvider) NewHistogram(name string, labels ...string) gkm.Histogram
 	return &flatHistogram{Name: Flatten(strings.Join([]string{p.prefix, name}, DotSeparator), labels, DotSeparator)}
 }
 
-func (p *flatProvider) Unregister(interface{}) {}
-
 type flatCounter struct {
 	Name string
 	v    uint64

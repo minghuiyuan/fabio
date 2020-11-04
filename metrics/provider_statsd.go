@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -14,29 +13,21 @@ import (
 )
 
 type statsdProvider struct {
-	s      *statsd.Statsd
-	cancel func()
-	wg     sync.WaitGroup
-	t      *time.Ticker
-	prefix string
+	s  *statsd.Statsd
+	t  *time.Ticker
 }
 
 func newStatsdProvider(prefix, addr string, interval time.Duration) (*statsdProvider, error) {
 	p := &statsdProvider{
-		s:      statsd.New(prefix, log.NewNopLogger()),
-		prefix: prefix,
+		s: statsd.New(prefix, log.NewNopLogger()),
 	}
 	_, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving statsd address %s: %w", addr, err)
 	}
-	var ctx context.Context
-	ctx, p.cancel = context.WithCancel(context.Background())
 	p.t = time.NewTicker(interval)
-	p.wg.Add(1)
 	go func() {
-		p.s.SendLoop(ctx, p.t.C, "udp", addr)
-		p.wg.Done()
+		p.s.SendLoop(context.Background(), p.t.C, "udp", addr)
 	}()
 
 	return p, nil
@@ -44,7 +35,6 @@ func newStatsdProvider(prefix, addr string, interval time.Duration) (*statsdProv
 
 type statsdCounter struct {
 	gkm.Counter
-	prefix       string
 	routeCounter bool
 	name         string
 	p            *statsdProvider
@@ -57,7 +47,7 @@ func (c *statsdCounter) With(labelValues ...string) gkm.Counter {
 	switch c.routeCounter {
 	case true:
 		var err error
-		name, err = RouteNameWith(c.name, c.labels, labelValues)
+		name, err = TargetNameWith(c.name, c.labels, labelValues)
 		if err != nil {
 			panic(err)
 		}
@@ -72,19 +62,19 @@ func (c *statsdCounter) With(labelValues ...string) gkm.Counter {
 	}
 }
 
+// NewCounter - This assumes if there are labels, there will be a With() call
 func (p *statsdProvider) NewCounter(name string, labels ...string) gkm.Counter {
 	if len(labels) == 0 {
 		return p.s.NewCounter(name, 1)
 	}
 	rc := strings.HasPrefix(name, RoutePrefix)
-	name = strings.Join([]string{p.prefix, name}, "--")
 	return &statsdCounter{
-		Counter:      p.s.NewCounter(name, 1),
 		name:         name,
 		p:            p,
 		labels:       labels,
 		routeCounter: rc,
 	}
+
 }
 
 type statsdGauge struct {
@@ -100,7 +90,7 @@ func (g *statsdGauge) With(labelValues ...string) gkm.Gauge {
 	switch g.routeGauge {
 	case true:
 		var err error
-		name, err = RouteNameWith(g.name, g.labels, labelValues)
+		name, err = TargetNameWith(g.name, g.labels, labelValues)
 		if err != nil {
 			panic(err)
 		}
@@ -116,15 +106,13 @@ func (g *statsdGauge) With(labelValues ...string) gkm.Gauge {
 	}
 }
 
+// NewGauge - this assumes if there are labels, there will be a With() call.
 func (p *statsdProvider) NewGauge(name string, labels ...string) gkm.Gauge {
-	g := p.s.NewGauge(name)
 	if len(labels) == 0 {
-		return g
+		return p.s.NewGauge(name)
 	}
 	rc := strings.HasPrefix(name, RoutePrefix)
-	name = strings.Join([]string{p.prefix, name}, "--")
 	return &statsdGauge{
-		Gauge:      g,
 		name:       name,
 		labels:     labels,
 		routeGauge: rc,
@@ -144,16 +132,15 @@ func (h *statsdHistogram) With(labelValues ...string) gkm.Histogram {
 	switch h.routeHistogram {
 	case true:
 		var err error
-		name, err = RouteNameWith(h.name, h.labels, labelValues)
+		name, err = TargetNameWith(h.name, h.labels, labelValues)
 		if err != nil {
 			panic(err)
 		}
 	case false:
 		name = Flatten(h.name, labelValues, DotSeparator)
-
 	}
 	return &statsdHistogram{
-		Histogram:      h.p.NewHistogram(name, h.labels...),
+		Histogram:      h.p.s.NewTiming(name, 1),
 		name:           name,
 		labels:         h.labels,
 		routeHistogram: h.routeHistogram,
@@ -164,23 +151,16 @@ func (h *statsdHistogram) Observe(value float64) {
 	h.Histogram.Observe(value * 1000.0)
 }
 
+// NewHistogram - this assumes if there are labels, there will be a With() call.
 func (p *statsdProvider) NewHistogram(name string, labels ...string) gkm.Histogram {
-	h := p.s.NewTiming(name, 1)
 	if len(labels) == 0 {
-		return h
+		return p.s.NewTiming(name, 1)
 	}
 	rc := strings.HasPrefix(name, RoutePrefix)
-	name = strings.Join([]string{p.prefix, name}, "--")
 	return &statsdHistogram{
-		Histogram:      h,
 		name:           name,
 		labels:         labels,
 		routeHistogram: rc,
 	}
 }
 
-func (p *statsdProvider) Unregister(interface{}) {
-	p.t.Stop()
-	p.cancel()
-	p.wg.Wait()
-}

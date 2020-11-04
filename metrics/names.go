@@ -149,7 +149,9 @@ func TargetName(service, host, path string, target string) (string, error) {
 	return name.String(), nil
 }
 
-func RouteNameWith(name string, labels, values []string) (string, error) {
+// TargetNameWith - this is used for flat metrics backend (no tags support)
+// in With() methods
+func TargetNameWith(name string, labels, values []string) (string, error) {
 	var (
 		service, host, path, target string
 	)
@@ -165,7 +167,7 @@ func RouteNameWith(name string, labels, values []string) (string, error) {
 		case "path":
 			path = values[i]
 		case "target":
-			path = values[i]
+			target = values[i]
 		}
 	}
 	n, err := TargetName(service, host, path, target)

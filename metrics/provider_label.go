@@ -24,8 +24,6 @@ func (p *labelProvider) NewHistogram(name string, labels ...string) gkm.Histogra
 	return &labelHistogram{Name: strings.Join([]string{p.prefix, name}, DotSeparator), Labels: labels}
 }
 
-func (p *labelProvider) Unregister(interface{}) {}
-
 type labelCounter struct {
 	Name   string
 	Labels []string

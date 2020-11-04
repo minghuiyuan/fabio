@@ -19,11 +19,6 @@ type Provider interface {
 	// NewHistogram creates a new histogram object
 	NewHistogram(name string, labels ...string) gkm.Histogram
 
-	// Unregister removes a previously registered
-	// name or metric. Required for go-metrics and
-	// service pruning. This signature is probably not
-	// correct.
-	Unregister(v interface{})
 }
 
 func Initialize(cfg *config.Metrics) (Provider, error) {
