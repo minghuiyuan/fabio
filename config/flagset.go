@@ -48,6 +48,7 @@ func (f *floatSliceValue) String() string {
 }
 
 func (f *floatSliceValue) Set(s string) error {
+	*f = []float64{}
 	for _, x := range strings.Split(s, ",") {
 		x = strings.TrimSpace(x)
 		if x == "" {
